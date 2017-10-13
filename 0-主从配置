@@ -1,0 +1,34 @@
+1.安装
+	1.wget http://download.redis.io/releases/redis-4.0.2.tar.gz
+	2.tar xzf redis-4.0.2.tar.gz
+	3.cd redis-4.0.2
+	4.make 时报错，缺少redis用到的依赖gcc
+		yum install gcc
+		装完还报错NOREPLICAS Not enough good slaves to write
+		make MALLOC=libc 就好了解释如下
+		说关于分配器allocator，如果有MALLOC这个环境变量，会有用这个环境变量的去建立Redis。
+		而且libc并不是默认的分配器,默认的是jemalloc,因为jemalloc被证明有更少的fragmentation problems 比libc。
+		但是如果你又没有jemalloc而只有libc当然make出错。所以加这么一个参数。
+
+2.主从配置
+	1.为测试方便在一台机器上启动三个redis，一主两从
+		1.拷贝两份才安装好的redis文件夹，新的两个redis不用重新安装
+		2.改两个新的redis的redis.config文件
+			port	<当前从端口>
+			slaveof <主IP> <主端口>
+		3.此时三台机器就配置好了……
+		4.登陆主redis，用info命令可以查看
+
+3.主从宕机切换
+	1.三个redis中都有redis-sentinel这个应用，用处是用来监控
+	2.三台中想启动哪个就配置哪个，或者想启动多个就配置多个
+	3.需要增加或修改的配置如下
+		port 26379 				   # 此sentinel的端口号
+		daemonize yes 				   # 是否后台启动
+		sentinel monitor mymaster 127.0.0.1 6379 1 # 指定sentinel去监视一个名为mymaster的Master，Master的IP地址为127.0.0.1
+							   # 最后的1表示当有1个Sentinel检测到Master异常时会判定其失效，如果为2，即只有当2个Sentinel
+							   # 都判定Master失效了才会自动迁移，如果Sentinel的数量不达标，则不会执行自动故障迁移
+		sentinel failover-timeout mymaster 900000  # 如果在该时间（ms）内未能完成failover（即故障时master/slave自动切换)
+						           # 操作，则认为该failover失败。
+		sentinel config-epoch mymaster 1
+		sentinel leader-epoch mymaster 1
